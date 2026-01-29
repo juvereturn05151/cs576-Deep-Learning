@@ -8,9 +8,6 @@ import csv
 import numpy as np
 from sklearn.model_selection import train_test_split
 
-def getRMSE(self, y_pred):
-    return np.sqrt(np.mean((self.y_test - y_pred) ** 2))
-
 class DeepLearningRunner:
     def __init__(self):
         self.initialize_data()
