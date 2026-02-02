@@ -20,8 +20,8 @@ class DeepLearningRunner:
 
         X, T = self.load_dataset("multiply_dataset.csv")
 
-        print("Inputs shape:", X.shape)  # (N, 2)
-        print("Targets shape:", T.shape)  # (N, 1)
+        print("Inputs shape:", X.shape)
+        print("Targets shape:", T.shape)
 
         self.X_train, self.X_test, self.T_train, self.T_test = train_test_split(X, T, test_size=0.2, random_state=42)
 
@@ -31,19 +31,22 @@ class DeepLearningRunner:
 
         with open(csv_path, "r") as f:
             reader = csv.reader(f)
-            next(reader)  # skip header
+            # skip header
+            next(reader)
 
             for row in reader:
                 x = float(row[0])
                 y = float(row[1])
                 out = float(row[2])
 
-                X.append([x, y])  # input: (x, y)
-                T.append([out])  # output: (x*y)
+                # input: (x, y)
+                X.append([x, y])
+                # output: (x*y)
+                T.append([out])
 
         return np.array(X), np.array(T)
 
-    def train(self, epochs=500, lr=0.05, batch_size=8):
+    def train(self, epochs=500, lr=0.1, batch_size=8):
         N = self.X_train.shape[0]
         rng = np.random.default_rng(42)
 
@@ -53,7 +56,6 @@ class DeepLearningRunner:
             Xs = self.X_train[idx]
             Ts = self.T_train[idx]
 
-            # mini-batch SGD
             for i in range(0, N, batch_size):
                 xb = Xs[i:i + batch_size]
                 tb = Ts[i:i + batch_size]
@@ -62,10 +64,10 @@ class DeepLearningRunner:
                 yb = self.model.forward(xb)
 
                 # loss gradient
-                dL_dy = math_utility.mse_backward(yb, tb)
+                gradient_error = math_utility.mse_backward(yb, tb)
 
                 # backward
-                self.model.backward(dL_dy)
+                self.model.backward(gradient_error)
 
                 # update
                 self.model.update(lr)

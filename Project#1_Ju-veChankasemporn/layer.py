@@ -9,8 +9,8 @@ import numpy as np
 class Layer:
     def __init__(self, in_dim, out_dim, seed=0):
         rng = np.random.default_rng(seed)
-        # He init is good for ReLU layers
-        self.W = rng.normal(0.0, np.sqrt(2.0 / in_dim), size=(in_dim, out_dim))
+        # Use Xavier for Linear
+        self.W = rng.normal(0.0, np.sqrt(1.0 / in_dim), size=(in_dim, out_dim))
         self.b = np.zeros((1, out_dim))
 
         # cache for backward

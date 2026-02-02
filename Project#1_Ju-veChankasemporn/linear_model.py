@@ -4,7 +4,6 @@ Author(s):    Ju-ve Chankasemporn
 Copyright:    (c) 2025 DigiPen Institute of Technology. All rights reserved.
 """
 
-import deep_learning_runner
 import layer
 
 class LinearModel:
