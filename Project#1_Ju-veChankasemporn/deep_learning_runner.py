@@ -9,6 +9,7 @@ import numpy as np
 import math_utility
 import model
 import layers
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
 class DeepLearningRunner:
@@ -19,9 +20,11 @@ class DeepLearningRunner:
             layers.Linear(2, 2, seed=2),
             layers.Linear(2, 1, seed=3),
         ])
+        self.model_name = " Linear"
 
-    def replace_model(self, model):
+    def replace_model(self, model, model_name):
         self.model = model
+        self.model_name = model_name
 
     def initialize_data(self):
         print(os.listdir())
@@ -58,6 +61,11 @@ class DeepLearningRunner:
         N = self.X_train.shape[0]
         rng = np.random.default_rng(42)
 
+        # history for visualization
+        self.train_rmse_history = []
+        self.test_rmse_history = []
+        self.epoch_history = []
+
         for epoch in range(1, epochs + 1):
             # shuffle each epoch
             idx = rng.permutation(N)
@@ -87,8 +95,30 @@ class DeepLearningRunner:
             train_rmse = math_utility.rmse(train_pred, self.T_train)
             test_rmse  = math_utility.rmse(test_pred, self.T_test)
 
+            self.epoch_history.append(epoch)
+            self.train_rmse_history.append(train_rmse)
+            self.test_rmse_history.append(test_rmse)
+
             if epoch == 1 or epoch % 50 == 0:
                 print(f"Epoch {epoch:4d} | Train RMSE: {train_rmse:.6f} | Test RMSE: {test_rmse:.6f}")
+
+        self.plot_rmse()
+
+    def plot_rmse(self):
+        if not hasattr(self, "epoch_history") or len(self.epoch_history) == 0:
+            print("No RMSE history to plot. Train first.")
+            return
+
+        plt.figure()
+        plt.plot(self.epoch_history, self.train_rmse_history, label="Train RMSE")
+        plt.plot(self.epoch_history, self.test_rmse_history, label="Test RMSE")
+        plt.xlabel("Epoch")
+        plt.ylabel("RMSE")
+        plt.title("RMSE over Training Epochs" + self.model_name)
+        plt.legend()
+        plt.grid(True)
+
+        plt.show()
 
     def run(self):
         print("Running Deep Learning Runner")
