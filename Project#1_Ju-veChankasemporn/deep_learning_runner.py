@@ -7,14 +7,22 @@ import os
 import csv
 import numpy as np
 import math_utility
-import linear_model
+import model
+import layers
 from sklearn.model_selection import train_test_split
 
 class DeepLearningRunner:
     def __init__(self):
         self.initialize_data()
-        self.model = linear_model.LinearModel(2, 2, 2, 1)
-    
+        self.model = model.Model([
+            layers.Linear(2, 2, seed=1),
+            layers.Linear(2, 2, seed=2),
+            layers.Linear(2, 1, seed=3),
+        ])
+
+    def replace_model(self, model):
+        self.model = model
+
     def initialize_data(self):
         print(os.listdir())
 
