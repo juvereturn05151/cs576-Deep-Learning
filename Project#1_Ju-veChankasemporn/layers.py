@@ -36,10 +36,10 @@ class Module:
 
     def update(self, lr):
         X = self.O
-        dZ = self.O_layer_plus_one_gradient
+        dZ = self.O_layer_plus_one_gradient * self.get_derived_formula_result(self.Z)
 
         self.weight_gradient = X.T @ dZ
-        self.bias_gradient = np.sum(dZ, axis=0, keepdims=True)
+        self.bias_gradient = dZ
 
         self.W -= lr * self.weight_gradient
         self.b -= lr * self.bias_gradient
@@ -102,3 +102,45 @@ class Tanh(Module):
         # derivative: 1 - tanh^2(x)
         T = np.tanh(X)
         return 1.0 - T * T
+
+class LeakyReLU(Module):
+    def __init__(self, in_dim, out_dim, seed=0, alpha=0.01):
+        super().__init__()
+        rng = np.random.default_rng(seed)
+        # He
+        self.W = rng.normal(0.0, np.sqrt(2.0 / in_dim), size=(in_dim, out_dim))
+        self.b = np.zeros((1, out_dim))
+        self.alpha = alpha
+
+    def get_normal_formula_result(self, X):
+        return np.where(X > 0, X, self.alpha * X)
+
+    def get_derived_formula_result(self, X):
+        return np.where(X > 0, 1.0, self.alpha).astype(X.dtype)
+
+
+class Piecewise(Module):
+    def __init__(self, in_dim, out_dim, seed=0, left=-1.0, right=1.0, slope_left=0.5, slope_right=1.0):
+        super().__init__()
+        rng = np.random.default_rng(seed)
+        # Xavier
+        self.W = rng.normal(0.0, np.sqrt(1.0 / in_dim), size=(in_dim, out_dim))
+        self.b = np.zeros((1, out_dim))
+
+        self.left = left
+        self.right = right
+        self.slope_left = slope_left
+        self.slope_right = slope_right
+
+    def get_normal_formula_result(self, X):
+        mid = np.zeros_like(X)
+
+        left_val = self.slope_left * (X - self.left)
+
+        right_val = self.slope_right * (X - self.right)
+
+        return np.where(X < self.left, left_val, np.where(X > self.right, right_val, mid))
+
+    def get_derived_formula_result(self, X):
+        return np.where(X < self.left, self.slope_left, np.where(X > self.right, self.slope_right, 0.0)).astype(X.dtype)
+

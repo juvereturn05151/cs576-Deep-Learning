@@ -1,0 +1,1 @@
+You can either run from main or the Jupiter Notebook

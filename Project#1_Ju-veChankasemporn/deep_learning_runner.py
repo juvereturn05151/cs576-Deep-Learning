@@ -125,9 +125,9 @@ class DeepLearningRunner:
         self.train(epochs=500, lr=0.05, batch_size=8)
 
         # quick sanity tests
-        X_test_points = np.array([[0.2, 0.7], [0.5, 0.5], [1.0, 0.3]], dtype=np.float64)
+        X_test_points = np.array([[0.2, 0.7], [0.5, 0.5], [1.0, 0.3], [0.3, 0.9], [1.0, 0.45]], dtype=np.float64)
         preds = self.model.forward(X_test_points).reshape(-1)
 
         print("\nQuick tests:")
         for (x, y), p in zip(X_test_points, preds):
-            print(f"x={x:.2f}, y={y:.2f} -> pred={p:.6f}, true={x*y:.6f}")
+            print(f"x={x:.2f}, y={y:.2f} -> pred={p:.6f}, actual={x*y:.6f}")
