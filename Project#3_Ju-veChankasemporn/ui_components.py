@@ -10,7 +10,6 @@ import pygame
 
 from config import BUTTON_COLOR, BUTTON_DISABLED_COLOR, BUTTON_HOVER_COLOR, BUTTON_TEXT_COLOR, PANEL_BORDER
 
-
 @dataclass
 class Button:
     rect: pygame.Rect

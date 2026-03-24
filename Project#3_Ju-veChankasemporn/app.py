@@ -219,14 +219,6 @@ class VacuumEnvironmentApp:
         title = self.title_font.render("DQN Test Console", True, TEXT_COLOR)
         self.screen.blit(title, (panel_x + 18, MARGIN + 18))
 
-        info_y = MARGIN + 16
-        section_y = info_y + 290
-
-        self._draw_info_block(panel_x + 18, info_y + 50)
-
-        section_title = self.heading_font.render("Controls", True, TEXT_COLOR)
-        self.screen.blit(section_title, (panel_x + 18, section_y))
-
         for button in self.buttons.values():
             button.draw(self.screen, self.body_font)
 
@@ -257,19 +249,7 @@ class VacuumEnvironmentApp:
             text = self.body_font.render(line, True, TEXT_COLOR)
             self.screen.blit(text, (x, y + index * 32))
 
-        hint = (
-            "This interface is for environment setup and DQN testing. "
-            "Manual gameplay is intentionally not included."
-        )
-        self._draw_wrapped_text(hint, self.small_font, SUBTEXT_COLOR, pygame.Rect(x, y + 180, RIGHT_PANEL_WIDTH - 36, 84))
-
-    def _draw_wrapped_text(
-        self,
-        text: str,
-        font: pygame.font.Font,
-        color: tuple[int, int, int],
-        rect: pygame.Rect,
-        line_spacing: int = 4,
+    def _draw_wrapped_text(self, text: str,font: pygame.font.Font,color: tuple[int, int, int],rect: pygame.Rect,line_spacing: int = 4,
     ) -> None:
         words = text.split()
         lines: list[str] = []
