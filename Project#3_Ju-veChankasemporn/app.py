@@ -1,3 +1,9 @@
+"""
+File Name:    app.py
+Author(s):    Ju-ve Chankasemporn
+Copyright:    (c) 2025 DigiPen Institute of Technology. All rights reserved.
+"""
+
 import sys
 from enum import Enum
 
@@ -32,7 +38,6 @@ class AppMode(Enum):
     IDLE = "Idle"
     TRAINING = "Training"
     DEPLOYED = "Deployed"
-
 
 class VacuumEnvironmentApp:
     def __init__(self) -> None:
@@ -245,18 +250,12 @@ class VacuumEnvironmentApp:
         pygame.draw.rect(self.screen, PANEL_COLOR, panel_rect, border_radius=14)
         pygame.draw.rect(self.screen, PANEL_BORDER, panel_rect, width=2, border_radius=14)
 
-        title = self.title_font.render("DQN Test Console", True, TEXT_COLOR)
-        self.screen.blit(title, (panel_x + 18, MARGIN + 18))
-
-        self._draw_info_block(panel_x + 18, MARGIN + 66)
-
-        section_title = self.heading_font.render("Controls", True, TEXT_COLOR)
-        self.screen.blit(section_title, (panel_x + 18, MARGIN + 300))
+        self._draw_info_block(panel_x + 18, MARGIN + 10)
 
         for button in self.buttons.values():
             button.draw(self.screen, self.body_font)
 
-        status_box = pygame.Rect(panel_x + 18, WINDOW_HEIGHT - 190, RIGHT_PANEL_WIDTH - 36, 120)
+        status_box = pygame.Rect(panel_x + 18, 250, RIGHT_PANEL_WIDTH - 36, 100)
         pygame.draw.rect(self.screen, (38, 42, 53), status_box, border_radius=12)
         pygame.draw.rect(self.screen, PANEL_BORDER, status_box, width=1, border_radius=12)
 
@@ -279,7 +278,6 @@ class VacuumEnvironmentApp:
 
         lines = [
             f"Grid size: {self.environment.grid_size} x {self.environment.grid_size}",
-            f"Dirty tiles: {len(self.environment.dirty_tiles)}",
             f"Robot pos: {self.environment.robot_position}",
             f"Steps: {self.environment.steps_taken}",
             f"Mode: {self.mode.value}",
