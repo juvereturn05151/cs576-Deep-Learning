@@ -51,31 +51,50 @@ class VacuumEnvironment:
         grid[robot_row, robot_col] = 2.0
         return grid.flatten()
 
-    def step(self, action: int) -> tuple[np.ndarray, float, bool]:
+    def step(self, action: int):
+        # Increment step count
         self.steps_taken += 1
+
+        # Default small penalty (encourage faster solutions)
         reward = -0.1
+
         robot_row, robot_col = self.robot_position
 
+        # CLEAN action
         if action == 4:
             if self.robot_position in self.dirty_tiles:
+                # Correct clean
                 self.dirty_tiles.remove(self.robot_position)
                 reward = 10.0
             else:
+                # Cleaning empty tile
                 reward = -1.0
+
         else:
+            # Movement action
             delta_row, delta_col = self.ACTIONS[action]
+
             next_row = robot_row + delta_row
             next_col = robot_col + delta_col
 
+            # Check bounds
             if 0 <= next_row < self.grid_size and 0 <= next_col < self.grid_size:
+                # Valid move
                 self.robot_position = (next_row, next_col)
             else:
+                # Hit wall
                 reward = -2.0
 
+        # Episode ends if:
+        # - all tiles cleaned
+        # - or max steps reached
         done = len(self.dirty_tiles) == 0 or self.steps_taken >= self.max_steps
+
+        # Bonus reward for finishing all dirt
         if len(self.dirty_tiles) == 0:
             reward += 20.0
 
+        # Return next state + reward
         return self.get_state_vector(), reward, done
 
     def action_count(self) -> int:
