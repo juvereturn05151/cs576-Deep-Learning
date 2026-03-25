@@ -16,13 +16,13 @@ from model.dqn import DQN
 
 
 class DQNModel:
-    def __init__(self, state_size: int, action_size: int) -> None:
-        self.state_size = state_size
-        self.action_size = action_size
+    def __init__(self, input_size: int, output_size: int) -> None:
+        self.input_size = input_size
+        self.action_size = output_size
         self.device = ("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.policy_net = DQN(state_size, action_size).to(self.device)
-        self.target_net = DQN(state_size, action_size).to(self.device)
+        self.policy_net = DQN(input_size, output_size).to(self.device)
+        self.target_net = DQN(input_size, output_size).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
 

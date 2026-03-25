@@ -29,12 +29,12 @@ class DQNWrapper:
         self.training_history: Optional[dict] = None
 
     def build_for_environment(self, environment) -> DQNModel:
-        state_size = environment.grid_size * environment.grid_size
-        action_size = environment.action_count()
+        input_size = environment.grid_size * environment.grid_size
+        output_size = environment.action_count()
 
         self.model = DQNModel(
-            state_size=state_size,
-            action_size=action_size,
+            input_size=input_size,
+            output_size=output_size,
         )
 
         if self.config.device is not None:
