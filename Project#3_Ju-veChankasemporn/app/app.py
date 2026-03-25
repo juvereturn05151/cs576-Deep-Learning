@@ -109,34 +109,6 @@ class App:
         self.status_message = f"Environment updated to fixed {size} x {size} map."
         self._refresh_button_states()
 
-    def update_deployment(self, dt_ms: int) -> None:
-        if self.mode != AppMode.DEPLOYED:
-            return
-
-        trainer = self.trainers.get(self.environment.grid_size)
-        if trainer is None:
-            self.mode = AppMode.IDLE
-            self.status_message = "Deployment stopped because no model is available."
-            return
-
-        self.deployment_timer_ms += dt_ms
-        if self.deployment_timer_ms < self.deployment_interval_ms:
-            return
-
-        self.deployment_timer_ms = 0
-        state = self.environment.get_state_vector()
-        action = trainer.act(state)
-        _, _, done = self.environment.step(action)
-
-        if done:
-            self.mode = AppMode.IDLE
-            if len(self.environment.dirty_tiles) == 0:
-                self.status_message = f"Deployment finished successfully in {self.environment.steps_taken} steps."
-            else:
-                self.status_message = (
-                    f"Deployment stopped after {self.environment.steps_taken} steps without fully cleaning the map."
-                )
-
     def reset_environment(self) -> None:
         self.environment.reset()
         self.mode = AppMode.IDLE
@@ -311,7 +283,7 @@ class App:
 
         wrapper = DQNWrapper(
             DQNConfig(
-                episodes=250,
+                episodes=500,
             )
         )
 
@@ -340,3 +312,32 @@ class App:
         self.mode = AppMode.DEPLOYED
         self.deployment_timer_ms = 0
         self.status_message = f"Deploying trained model on {self.environment.grid_size} x {self.environment.grid_size}."
+
+
+    def update_deployment(self, dt_ms: int) -> None:
+        if self.mode != AppMode.DEPLOYED:
+            return
+
+        trainer = self.trainers.get(self.environment.grid_size)
+        if trainer is None:
+            self.mode = AppMode.IDLE
+            self.status_message = "Deployment stopped because no model is available."
+            return
+
+        self.deployment_timer_ms += dt_ms
+        if self.deployment_timer_ms < self.deployment_interval_ms:
+            return
+
+        self.deployment_timer_ms = 0
+        state = self.environment.get_state_vector()
+        action = trainer.act(state)
+        _, _, done = self.environment.step(action)
+
+        if done:
+            self.mode = AppMode.IDLE
+            if len(self.environment.dirty_tiles) == 0:
+                self.status_message = f"Deployment finished successfully in {self.environment.steps_taken} steps."
+            else:
+                self.status_message = (
+                    f"Deployment stopped after {self.environment.steps_taken} steps without fully cleaning the map."
+                )
