@@ -1,9 +1,3 @@
-"""
-File Name:    app.py
-Author(s):    Ju-ve Chankasemporn
-Copyright:    (c) 2025 DigiPen Institute of Technology. All rights reserved.
-"""
-
 import sys
 from enum import Enum
 
@@ -13,8 +7,8 @@ from config import (
     AVAILABLE_GRID_SIZES,
     BACKGROUND_COLOR,
     DEFAULT_GRID_SIZE,
-    EMPTY_CELL_COLOR,
     DIRTY_CELL_COLOR,
+    EMPTY_CELL_COLOR,
     FPS,
     GRID_LINE_COLOR,
     GRID_PANEL_HEIGHT,
@@ -29,8 +23,9 @@ from config import (
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
 )
-from environment import VacuumEnvironment
+from dqn_trainer import DQNTrainer
 from ui_components import Button
+from environment import VacuumEnvironment
 
 
 class AppMode(Enum):
@@ -53,8 +48,11 @@ class VacuumEnvironmentApp:
 
         self.environment = VacuumEnvironment(DEFAULT_GRID_SIZE)
         self.mode = AppMode.IDLE
-        self.model_exists = False
-        self.status_message = "Ready. Select a grid size and prepare the environment."
+        self.status_message = "Ready. Select a grid size and train a model."
+        self.last_training_summary = ""
+        self.trainers: dict[int, DQNTrainer] = {}
+        self.deployment_timer_ms = 0
+        self.deployment_interval_ms = 250
 
         self.grid_origin_x = MARGIN
         self.grid_origin_y = MARGIN
@@ -66,7 +64,7 @@ class VacuumEnvironmentApp:
 
     def _create_buttons(self) -> None:
         panel_x = WINDOW_WIDTH - RIGHT_PANEL_WIDTH - MARGIN
-        current_y = MARGIN + 72
+        current_y = MARGIN + 340
         button_width = RIGHT_PANEL_WIDTH
         button_height = 48
         spacing = 14
@@ -98,32 +96,76 @@ class VacuumEnvironmentApp:
         )
 
     def _refresh_button_states(self) -> None:
-        self.buttons["deploy"].enabled = self.model_exists
+        self.buttons["deploy"].enabled = self.environment.grid_size in self.trainers
 
     def set_grid_size(self, size: int) -> None:
         self.environment.set_grid_size(size)
         self.mode = AppMode.IDLE
         self.status_message = f"Environment updated to fixed {size} x {size} map."
+        self._refresh_button_states()
 
     def train_model(self) -> None:
         self.mode = AppMode.TRAINING
-        self.model_exists = True
+        self.status_message = f"Training DQN for {self.environment.grid_size} x {self.environment.grid_size}..."
+        self.draw()
+
+        state_size = self.environment.grid_size * self.environment.grid_size
+        action_size = self.environment.action_count()
+
+        trainer = DQNTrainer(state_size=state_size, action_size=action_size)
+        history = trainer.train(self.environment, episodes=250)
+        self.trainers[self.environment.grid_size] = trainer
+
+        self.mode = AppMode.IDLE
+        avg_reward = sum(history["rewards"][-20:]) / max(1, len(history["rewards"][-20:]))
+        avg_steps = sum(history["steps"][-20:]) / max(1, len(history["steps"][-20:]))
+        self.last_training_summary = f"Avg reward: {avg_reward:.2f} | Avg steps: {avg_steps:.1f}"
         self.status_message = (
-            f"Train button pressed for {self.environment.grid_size} x {self.environment.grid_size}. "
-            "Training logic is not implemented yet."
+            f"Training finished for {self.environment.grid_size} x {self.environment.grid_size}. "
+            f"{self.last_training_summary}"
         )
+
+        self.environment.reset()
         self._refresh_button_states()
 
     def deploy_model(self) -> None:
-        if not self.model_exists:
-            self.status_message = "No trained model exists for deployment yet."
+        trainer = self.trainers.get(self.environment.grid_size)
+        if trainer is None:
+            self.status_message = "No trained model exists for this grid size yet."
             return
 
+        self.environment.reset()
         self.mode = AppMode.DEPLOYED
-        self.status_message = (
-            f"Deploy requested for {self.environment.grid_size} x {self.environment.grid_size}. "
-            "Inference logic is not implemented yet."
-        )
+        self.deployment_timer_ms = 0
+        self.status_message = f"Deploying trained model on {self.environment.grid_size} x {self.environment.grid_size}."
+
+    def update_deployment(self, dt_ms: int) -> None:
+        if self.mode != AppMode.DEPLOYED:
+            return
+
+        trainer = self.trainers.get(self.environment.grid_size)
+        if trainer is None:
+            self.mode = AppMode.IDLE
+            self.status_message = "Deployment stopped because no model is available."
+            return
+
+        self.deployment_timer_ms += dt_ms
+        if self.deployment_timer_ms < self.deployment_interval_ms:
+            return
+
+        self.deployment_timer_ms = 0
+        state = self.environment.get_state_vector()
+        action = trainer.act(state)
+        _, _, done = self.environment.step(action)
+
+        if done:
+            self.mode = AppMode.IDLE
+            if len(self.environment.dirty_tiles) == 0:
+                self.status_message = f"Deployment finished successfully in {self.environment.steps_taken} steps."
+            else:
+                self.status_message = (
+                    f"Deployment stopped after {self.environment.steps_taken} steps without fully cleaning the map."
+                )
 
     def reset_environment(self) -> None:
         self.environment.reset()
@@ -157,13 +199,7 @@ class VacuumEnvironmentApp:
         pygame.display.flip()
 
     def _draw_grid_panel(self) -> None:
-        grid_rect = pygame.Rect(
-            self.grid_origin_x,
-            self.grid_origin_y,
-            self.grid_area_size,
-            self.grid_area_size,
-        )
-
+        grid_rect = pygame.Rect(self.grid_origin_x, self.grid_origin_y, self.grid_area_size, self.grid_area_size)
         pygame.draw.rect(self.screen, PANEL_COLOR, grid_rect, border_radius=14)
         pygame.draw.rect(self.screen, PANEL_BORDER, grid_rect, width=2, border_radius=14)
 
@@ -174,7 +210,6 @@ class VacuumEnvironmentApp:
                 x = self.grid_origin_x + col * cell_size
                 y = self.grid_origin_y + row * cell_size
                 cell_rect = pygame.Rect(round(x), round(y), round(cell_size), round(cell_size))
-
                 color = DIRTY_CELL_COLOR if (row, col) in self.environment.dirty_tiles else EMPTY_CELL_COLOR
                 pygame.draw.rect(self.screen, color, cell_rect)
                 pygame.draw.rect(self.screen, GRID_LINE_COLOR, cell_rect, width=1)
@@ -183,12 +218,7 @@ class VacuumEnvironmentApp:
         robot_center_x = self.grid_origin_x + robot_col * cell_size + cell_size / 2
         robot_center_y = self.grid_origin_y + robot_row * cell_size + cell_size / 2
         robot_radius = max(10, int(cell_size * 0.25))
-        pygame.draw.circle(
-            self.screen,
-            ROBOT_COLOR,
-            (round(robot_center_x), round(robot_center_y)),
-            robot_radius,
-        )
+        pygame.draw.circle(self.screen, ROBOT_COLOR, (round(robot_center_x), round(robot_center_y)), robot_radius)
 
         legend_y = self.grid_origin_y + self.grid_area_size + 12
         self._draw_legend(legend_y)
@@ -212,12 +242,16 @@ class VacuumEnvironmentApp:
     def _draw_right_panel(self) -> None:
         panel_x = WINDOW_WIDTH - RIGHT_PANEL_WIDTH - MARGIN
         panel_rect = pygame.Rect(panel_x, MARGIN, RIGHT_PANEL_WIDTH, WINDOW_HEIGHT - MARGIN * 2)
-
         pygame.draw.rect(self.screen, PANEL_COLOR, panel_rect, border_radius=14)
         pygame.draw.rect(self.screen, PANEL_BORDER, panel_rect, width=2, border_radius=14)
 
         title = self.title_font.render("DQN Test Console", True, TEXT_COLOR)
         self.screen.blit(title, (panel_x + 18, MARGIN + 18))
+
+        self._draw_info_block(panel_x + 18, MARGIN + 66)
+
+        section_title = self.heading_font.render("Controls", True, TEXT_COLOR)
+        self.screen.blit(section_title, (panel_x + 18, MARGIN + 300))
 
         for button in self.buttons.values():
             button.draw(self.screen, self.body_font)
@@ -228,7 +262,6 @@ class VacuumEnvironmentApp:
 
         status_title = self.heading_font.render("Status", True, TEXT_COLOR)
         self.screen.blit(status_title, (status_box.x + 12, status_box.y + 10))
-
         self._draw_wrapped_text(
             self.status_message,
             self.small_font,
@@ -237,19 +270,41 @@ class VacuumEnvironmentApp:
         )
 
     def _draw_info_block(self, x: int, y: int) -> None:
+        info_box = pygame.Rect(x, y, RIGHT_PANEL_WIDTH - 36, 210)
+        pygame.draw.rect(self.screen, (38, 42, 53), info_box, border_radius=12)
+        pygame.draw.rect(self.screen, PANEL_BORDER, info_box, width=1, border_radius=12)
+
+        info_title = self.heading_font.render("Environment", True, TEXT_COLOR)
+        self.screen.blit(info_title, (info_box.x + 12, info_box.y + 10))
+
         lines = [
             f"Grid size: {self.environment.grid_size} x {self.environment.grid_size}",
             f"Dirty tiles: {len(self.environment.dirty_tiles)}",
-            f"Robot start: {self.environment.robot_position}",
+            f"Robot pos: {self.environment.robot_position}",
+            f"Steps: {self.environment.steps_taken}",
             f"Mode: {self.mode.value}",
-            f"Model available: {'Yes' if self.model_exists else 'No'}",
+            f"Model ready: {'Yes' if self.environment.grid_size in self.trainers else 'No'}",
         ]
 
         for index, line in enumerate(lines):
             text = self.body_font.render(line, True, TEXT_COLOR)
-            self.screen.blit(text, (x, y + index * 32))
+            self.screen.blit(text, (info_box.x + 12, info_box.y + 42 + index * 24))
 
-    def _draw_wrapped_text(self, text: str,font: pygame.font.Font,color: tuple[int, int, int],rect: pygame.Rect,line_spacing: int = 4,
+        if self.last_training_summary:
+            self._draw_wrapped_text(
+                self.last_training_summary,
+                self.small_font,
+                SUBTEXT_COLOR,
+                pygame.Rect(info_box.x + 12, info_box.bottom - 44, info_box.width - 24, 30),
+            )
+
+    def _draw_wrapped_text(
+        self,
+        text: str,
+        font: pygame.font.Font,
+        color: tuple[int, int, int],
+        rect: pygame.Rect,
+        line_spacing: int = 4,
     ) -> None:
         words = text.split()
         lines: list[str] = []
@@ -277,9 +332,10 @@ class VacuumEnvironmentApp:
     def run(self) -> None:
         running = True
         while running:
-            self.clock.tick(FPS)
+            dt_ms = self.clock.tick(FPS)
             mouse_pos = pygame.mouse.get_pos()
             self.update_hover_states(mouse_pos)
+            self.update_deployment(dt_ms)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
