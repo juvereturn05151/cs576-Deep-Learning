@@ -4,8 +4,8 @@ Author(s):    Ju-ve Chankasemporn
 Copyright:    (c) 2025 DigiPen Institute of Technology. All rights reserved.
 """
 
-from app import VacuumEnvironmentApp
+from app.app import App
 
 if __name__ == "__main__":
-    app = VacuumEnvironmentApp()
+    app = App()
     app.run()

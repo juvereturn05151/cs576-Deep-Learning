@@ -1,5 +1,5 @@
 """
-File Name:    dqn_trainer.py
+File Name:    dqn_model.py
 Author(s):    Ju-ve Chankasemporn
 Copyright:    (c) 2025 DigiPen Institute of Technology. All rights reserved.
 """
@@ -12,14 +12,14 @@ import torch
 from torch import nn
 from torch.optim import Adam
 
-from model import DQN
+from model.dqn import DQN
 
 
-class DQNTrainer:
-    def __init__(self, state_size: int, action_size: int, device=None) -> None:
+class DQNModel:
+    def __init__(self, state_size: int, action_size: int) -> None:
         self.state_size = state_size
         self.action_size = action_size
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = ("cuda" if torch.cuda.is_available() else "cpu")
 
         self.policy_net = DQN(state_size, action_size).to(self.device)
         self.target_net = DQN(state_size, action_size).to(self.device)
@@ -46,14 +46,7 @@ class DQNTrainer:
             q_values = self.policy_net(state_tensor)
         return int(torch.argmax(q_values, dim=1).item())
 
-    def store_transition(
-        self,
-        state: np.ndarray,
-        action: int,
-        reward: float,
-        next_state: np.ndarray,
-        done: bool,
-    ) -> None:
+    def store_transition(self, state: np.ndarray, action: int,reward: float, next_state: np.ndarray,done: bool,) -> None:
         self.memory.append((state, action, reward, next_state, done))
 
     def train_step(self) -> float:
@@ -114,11 +107,7 @@ class DQNTrainer:
             loss_history.append(episode_loss_total / max(1, loss_updates))
 
         return {
-            "episodes": episodes,
-            "rewards": reward_history,
-            "steps": steps_history,
-            "losses": loss_history,
-            "final_epsilon": self.epsilon,
+            "episodes": episodes, "rewards": reward_history, "steps": steps_history, "losses": loss_history, "final_epsilon": self.epsilon,
         }
 
     def act(self, state: np.ndarray) -> int:

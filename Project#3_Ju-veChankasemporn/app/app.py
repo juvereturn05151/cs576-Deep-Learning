@@ -29,9 +29,9 @@ from config import (
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
 )
-from dqn_trainer import DQNTrainer
-from ui_components import Button
-from environment import VacuumEnvironment
+from model.dqn_wrapper import DQNWrapper, DQNConfig
+from app.ui_components import Button
+from vacuum_environment.environment import VacuumEnvironment
 
 
 class AppMode(Enum):
@@ -39,7 +39,7 @@ class AppMode(Enum):
     TRAINING = "Training"
     DEPLOYED = "Deployed"
 
-class VacuumEnvironmentApp:
+class App:
     def __init__(self) -> None:
         pygame.init()
         pygame.display.set_caption("Vacuum Cleaner DQN Environment")
@@ -55,7 +55,7 @@ class VacuumEnvironmentApp:
         self.mode = AppMode.IDLE
         self.status_message = "Ready. Select a grid size and train a model."
         self.last_training_summary = ""
-        self.trainers: dict[int, DQNTrainer] = {}
+        self.trainers: dict[int, DQNWrapper] = {}
         self.deployment_timer_ms = 0
         self.deployment_interval_ms = 250
 
@@ -108,41 +108,6 @@ class VacuumEnvironmentApp:
         self.mode = AppMode.IDLE
         self.status_message = f"Environment updated to fixed {size} x {size} map."
         self._refresh_button_states()
-
-    def train_model(self) -> None:
-        self.mode = AppMode.TRAINING
-        self.status_message = f"Training DQN for {self.environment.grid_size} x {self.environment.grid_size}..."
-        self.draw()
-
-        state_size = self.environment.grid_size * self.environment.grid_size
-        action_size = self.environment.action_count()
-
-        trainer = DQNTrainer(state_size=state_size, action_size=action_size)
-        history = trainer.train(self.environment, episodes=250)
-        self.trainers[self.environment.grid_size] = trainer
-
-        self.mode = AppMode.IDLE
-        avg_reward = sum(history["rewards"][-20:]) / max(1, len(history["rewards"][-20:]))
-        avg_steps = sum(history["steps"][-20:]) / max(1, len(history["steps"][-20:]))
-        self.last_training_summary = f"Avg reward: {avg_reward:.2f} | Avg steps: {avg_steps:.1f}"
-        self.status_message = (
-            f"Training finished for {self.environment.grid_size} x {self.environment.grid_size}. "
-            f"{self.last_training_summary}"
-        )
-
-        self.environment.reset()
-        self._refresh_button_states()
-
-    def deploy_model(self) -> None:
-        trainer = self.trainers.get(self.environment.grid_size)
-        if trainer is None:
-            self.status_message = "No trained model exists for this grid size yet."
-            return
-
-        self.environment.reset()
-        self.mode = AppMode.DEPLOYED
-        self.deployment_timer_ms = 0
-        self.status_message = f"Deploying trained model on {self.environment.grid_size} x {self.environment.grid_size}."
 
     def update_deployment(self, dt_ms: int) -> None:
         if self.mode != AppMode.DEPLOYED:
@@ -296,14 +261,7 @@ class VacuumEnvironmentApp:
                 pygame.Rect(info_box.x + 12, info_box.bottom - 44, info_box.width - 24, 30),
             )
 
-    def _draw_wrapped_text(
-        self,
-        text: str,
-        font: pygame.font.Font,
-        color: tuple[int, int, int],
-        rect: pygame.Rect,
-        line_spacing: int = 4,
-    ) -> None:
+    def _draw_wrapped_text(self,text: str,font: pygame.font.Font,color: tuple[int, int, int],rect: pygame.Rect,line_spacing: int = 4,) -> None:
         words = text.split()
         lines: list[str] = []
         current_line = ""
@@ -345,3 +303,40 @@ class VacuumEnvironmentApp:
 
         pygame.quit()
         sys.exit()
+
+    def train_model(self) -> None:
+        self.mode = AppMode.TRAINING
+        self.status_message = f"Training DQN for {self.environment.grid_size} x {self.environment.grid_size}..."
+        self.draw()
+
+        wrapper = DQNWrapper(
+            DQNConfig(
+                episodes=250,
+            )
+        )
+
+        history = wrapper.train(self.environment)
+        self.trainers[self.environment.grid_size] = wrapper
+
+        self.mode = AppMode.IDLE
+        avg_reward = sum(history["rewards"][-20:]) / max(1, len(history["rewards"][-20:]))
+        avg_steps = sum(history["steps"][-20:]) / max(1, len(history["steps"][-20:]))
+        self.last_training_summary = f"Avg reward: {avg_reward:.2f} | Avg steps: {avg_steps:.1f}"
+        self.status_message = (
+            f"Training finished for {self.environment.grid_size} x {self.environment.grid_size}. "
+            f"{self.last_training_summary}"
+        )
+
+        self.environment.reset()
+        self._refresh_button_states()
+
+    def deploy_model(self) -> None:
+        trainer = self.trainers.get(self.environment.grid_size)
+        if trainer is None:
+            self.status_message = "No trained model exists for this grid size yet."
+            return
+
+        self.environment.reset()
+        self.mode = AppMode.DEPLOYED
+        self.deployment_timer_ms = 0
+        self.status_message = f"Deploying trained model on {self.environment.grid_size} x {self.environment.grid_size}."
