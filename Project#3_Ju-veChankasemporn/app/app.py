@@ -29,15 +29,29 @@ from config import (
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
 )
-from model.dqn_wrapper import DQNWrapper, DQNConfig
-from app.ui_components import Button
-from vacuum_environment.environment import VacuumEnvironment
+
+# Support both the packaged project layout and flat local files.
+try:
+    from model.dqn_wrapper import DQNWrapper, DQNConfig
+except ImportError:
+    from model.dqn_wrapper import DQNWrapper, DQNConfig
+
+try:
+    from app.ui_components import Button
+except ImportError:
+    from ui_components import Button
+
+try:
+    from vacuum_environment.environment import VacuumEnvironment
+except ImportError:
+    from vacuum_environment.environment import VacuumEnvironment
 
 
 class AppMode(Enum):
     IDLE = "Idle"
     TRAINING = "Training"
     DEPLOYED = "Deployed"
+
 
 class App:
     def __init__(self) -> None:
@@ -56,6 +70,7 @@ class App:
         self.status_message = "Ready. Select a grid size and train a model."
         self.last_training_summary = ""
         self.trainers: dict[int, DQNWrapper] = {}
+        self.training_histories: dict[int, dict] = {}
         self.deployment_timer_ms = 0
         self.deployment_interval_ms = 250
 
@@ -101,18 +116,30 @@ class App:
         )
 
     def _refresh_button_states(self) -> None:
-        self.buttons["deploy"].enabled = self.environment.grid_size in self.trainers
+        model_ready = self.environment.grid_size in self.trainers
+        busy = self.mode == AppMode.TRAINING
+
+        self.buttons["deploy"].enabled = model_ready and not busy
+        self.buttons["train"].enabled = not busy
+        self.buttons["reset"].enabled = not busy
+
+        for size in AVAILABLE_GRID_SIZES:
+            self.buttons[f"grid_{size}"].enabled = not busy
 
     def set_grid_size(self, size: int) -> None:
         self.environment.set_grid_size(size)
         self.mode = AppMode.IDLE
         self.status_message = f"Environment updated to fixed {size} x {size} map."
+        self.last_training_summary = self._build_training_summary(size)
         self._refresh_button_states()
 
     def reset_environment(self) -> None:
         self.environment.reset()
         self.mode = AppMode.IDLE
-        self.status_message = f"Environment reset for {self.environment.grid_size} x {self.environment.grid_size}."
+        self.status_message = (
+            f"Environment reset for {self.environment.grid_size} x {self.environment.grid_size}."
+        )
+        self._refresh_button_states()
 
     def handle_click(self, pos: tuple[int, int]) -> None:
         for key, button in self.buttons.items():
@@ -141,7 +168,12 @@ class App:
         pygame.display.flip()
 
     def _draw_grid_panel(self) -> None:
-        grid_rect = pygame.Rect(self.grid_origin_x, self.grid_origin_y, self.grid_area_size, self.grid_area_size)
+        grid_rect = pygame.Rect(
+            self.grid_origin_x,
+            self.grid_origin_y,
+            self.grid_area_size,
+            self.grid_area_size,
+        )
         pygame.draw.rect(self.screen, PANEL_COLOR, grid_rect, border_radius=14)
         pygame.draw.rect(self.screen, PANEL_BORDER, grid_rect, width=2, border_radius=14)
 
@@ -160,7 +192,12 @@ class App:
         robot_center_x = self.grid_origin_x + robot_col * cell_size + cell_size / 2
         robot_center_y = self.grid_origin_y + robot_row * cell_size + cell_size / 2
         robot_radius = max(10, int(cell_size * 0.25))
-        pygame.draw.circle(self.screen, ROBOT_COLOR, (round(robot_center_x), round(robot_center_y)), robot_radius)
+        pygame.draw.circle(
+            self.screen,
+            ROBOT_COLOR,
+            (round(robot_center_x), round(robot_center_y)),
+            robot_radius,
+        )
 
         legend_y = self.grid_origin_y + self.grid_area_size + 12
         self._draw_legend(legend_y)
@@ -230,10 +267,17 @@ class App:
                 self.last_training_summary,
                 self.small_font,
                 SUBTEXT_COLOR,
-                pygame.Rect(info_box.x + 12, info_box.bottom - 44, info_box.width - 24, 30),
+                pygame.Rect(info_box.x + 12, info_box.bottom - 56, info_box.width - 24, 42),
             )
 
-    def _draw_wrapped_text(self,text: str,font: pygame.font.Font,color: tuple[int, int, int],rect: pygame.Rect,line_spacing: int = 4,) -> None:
+    def _draw_wrapped_text(
+        self,
+        text: str,
+        font: pygame.font.Font,
+        color: tuple[int, int, int],
+        rect: pygame.Rect,
+        line_spacing: int = 4,
+    ) -> None:
         words = text.split()
         lines: list[str] = []
         current_line = ""
@@ -276,27 +320,53 @@ class App:
         pygame.quit()
         sys.exit()
 
+    def _build_training_summary(self, grid_size: int) -> str:
+        history = self.training_histories.get(grid_size)
+        if not history or not history.get("rewards"):
+            return ""
+
+        window = min(20, len(history["rewards"]))
+        avg_reward = sum(history["rewards"][-window:]) / window
+        avg_steps = sum(history["steps"][-window:]) / window
+        avg_loss = sum(history["losses"][-window:]) / max(1, window)
+        final_eps = history["epsilons"][-1] if history.get("epsilons") else 0.0
+        return (
+            f"Avg reward: {avg_reward:.2f} | Avg steps: {avg_steps:.1f} | "
+            f"Avg loss: {avg_loss:.4f} | Eps: {final_eps:.3f}"
+        )
+
     def train_model(self) -> None:
         self.mode = AppMode.TRAINING
-        self.status_message = f"Training DQN for {self.environment.grid_size} x {self.environment.grid_size}..."
+        self._refresh_button_states()
+        self.status_message = (
+            f"Training DQN for {self.environment.grid_size} x {self.environment.grid_size}..."
+        )
         self.draw()
 
         wrapper = DQNWrapper(
             DQNConfig(
                 episodes=500,
+                gamma=0.99,
+                lr=1e-3,
+                epsilon=1.0,
+                epsilon_min=0.05,
+                epsilon_decay=1e-3,
+                mem_size=10000,
+                batch_size=64,
+                target_replace=100,
+                use_dueling=False,
             )
         )
 
         history = wrapper.train(self.environment)
-        self.trainers[self.environment.grid_size] = wrapper
+        grid_size = self.environment.grid_size
+        self.trainers[grid_size] = wrapper
+        self.training_histories[grid_size] = history
 
         self.mode = AppMode.IDLE
-        avg_reward = sum(history["rewards"][-20:]) / max(1, len(history["rewards"][-20:]))
-        avg_steps = sum(history["steps"][-20:]) / max(1, len(history["steps"][-20:]))
-        self.last_training_summary = f"Avg reward: {avg_reward:.2f} | Avg steps: {avg_steps:.1f}"
+        self.last_training_summary = self._build_training_summary(grid_size)
         self.status_message = (
-            f"Training finished for {self.environment.grid_size} x {self.environment.grid_size}. "
-            f"{self.last_training_summary}"
+            f"Training finished for {grid_size} x {grid_size}. {self.last_training_summary}"
         )
 
         self.environment.reset()
@@ -311,8 +381,10 @@ class App:
         self.environment.reset()
         self.mode = AppMode.DEPLOYED
         self.deployment_timer_ms = 0
-        self.status_message = f"Deploying trained model on {self.environment.grid_size} x {self.environment.grid_size}."
-
+        self.status_message = (
+            f"Deploying trained model on {self.environment.grid_size} x {self.environment.grid_size}."
+        )
+        self._refresh_button_states()
 
     def update_deployment(self, dt_ms: int) -> None:
         if self.mode != AppMode.DEPLOYED:
@@ -322,6 +394,7 @@ class App:
         if trainer is None:
             self.mode = AppMode.IDLE
             self.status_message = "Deployment stopped because no model is available."
+            self._refresh_button_states()
             return
 
         self.deployment_timer_ms += dt_ms
@@ -336,8 +409,12 @@ class App:
         if done:
             self.mode = AppMode.IDLE
             if len(self.environment.dirty_tiles) == 0:
-                self.status_message = f"Deployment finished successfully in {self.environment.steps_taken} steps."
+                self.status_message = (
+                    f"Deployment finished successfully in {self.environment.steps_taken} steps."
+                )
             else:
                 self.status_message = (
-                    f"Deployment stopped after {self.environment.steps_taken} steps without fully cleaning the map."
+                    f"Deployment stopped after {self.environment.steps_taken} steps "
+                    f"without fully cleaning the map."
                 )
+            self._refresh_button_states()
