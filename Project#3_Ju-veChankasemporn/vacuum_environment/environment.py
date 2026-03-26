@@ -82,9 +82,9 @@ class VacuumEnvironment:
             # Penalize hitting the boundary
             reward = -2.0
 
-        # Episode ends when:
-        # 1) all dirt has been cleaned, or
-        # 2) max allowed steps reached
+        #episode ends when:
+        #1) all dirt has been cleaned, or
+        #2) max allowed steps reached
         done = len(self.dirty_tiles) == 0 or self.steps_taken >= self.max_steps
 
         # Extra bonus for fully finishing the map

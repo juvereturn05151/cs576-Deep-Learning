@@ -19,8 +19,8 @@ class DQNConfig:
 
 
 class DQNWrapper:
-    def __init__(self, config: Optional[DQNConfig] = None) -> None:
-        self.config = config or DQNConfig()
+    def __init__(self) -> None:
+        self.config = DQNConfig()
         self.agent = None
         self.grid_size: Optional[int] = None
         self.training_history: Optional[dict] = None

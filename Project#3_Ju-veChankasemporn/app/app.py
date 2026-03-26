@@ -32,9 +32,9 @@ from config import (
 
 # Support both the packaged project layout and flat local files.
 try:
-    from model.dqn_wrapper import DQNWrapper, DQNConfig
+    from model.dqn_wrapper import DQNWrapper
 except ImportError:
-    from model.dqn_wrapper import DQNWrapper, DQNConfig
+    from model.dqn_wrapper import DQNWrapper
 
 try:
     from app.ui_components import Button
@@ -343,19 +343,7 @@ class App:
         )
         self.draw()
 
-        wrapper = DQNWrapper(
-            DQNConfig(
-                episodes=500,
-                gamma=0.99,
-                lr=1e-3,
-                epsilon=1.0,
-                epsilon_min=0.05,
-                epsilon_decay=1e-3,
-                mem_size=10000,
-                batch_size=64,
-                target_replace=100,
-            )
-        )
+        wrapper = DQNWrapper()
 
         history = wrapper.train(self.environment)
         grid_size = self.environment.grid_size
