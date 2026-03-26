@@ -78,37 +78,3 @@ class DeepQNetwork(nn.Module):
 
     def load_checkpoint(self):
         self.load_state_dict(T.load(self.checkpoint_file, map_location=self.device))
-
-
-class DuelingDeepQNetwork(nn.Module):
-    def __init__(self, lr, n_actions, name, input_dims, chkpt_dir):
-        super().__init__()
-        self.checkpoint_dir = chkpt_dir
-        os.makedirs(self.checkpoint_dir, exist_ok=True)
-        self.checkpoint_file = os.path.join(self.checkpoint_dir, name)
-
-        input_size = int(np.prod(input_dims))
-        self.fc1 = nn.Linear(input_size, 256)
-        self.fc2 = nn.Linear(256, 256)
-        self.V = nn.Linear(256, 1)
-        self.A = nn.Linear(256, n_actions)
-
-        self.optimizer = optim.RMSprop(self.parameters(), lr=lr)
-        self.loss = nn.MSELoss()
-        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
-        self.to(self.device)
-
-    def forward(self, state):
-        if state.dim() > 2:
-            state = state.view(state.size(0), -1)
-        x = F.relu(self.fc1(state))
-        x = F.relu(self.fc2(x))
-        V = self.V(x)
-        A = self.A(x)
-        return V, A
-
-    def save_checkpoint(self):
-        T.save(self.state_dict(), self.checkpoint_file)
-
-    def load_checkpoint(self):
-        self.load_state_dict(T.load(self.checkpoint_file, map_location=self.device))

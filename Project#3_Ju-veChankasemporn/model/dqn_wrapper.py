@@ -1,17 +1,17 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from agents import DQNAgent
+from model.agents import DQNAgent
 
 
 @dataclass
 class DQNConfig:
     episodes: int = 500
-    gamma: float = 0.99
-    lr: float = 1e-3
+    gamma: float = 0.9
+    lr: float = 0.1
     epsilon: float = 1.0
     epsilon_min: float = 0.05
-    epsilon_decay: float = 1e-3
+    epsilon_decay: float = 0.5
     mem_size: int = 10000
     batch_size: int = 64
     target_replace: int = 100
@@ -41,7 +41,6 @@ class DQNWrapper:
             eps_min=self.config.epsilon_min,
             eps_dec=self.config.epsilon_decay,
             replace=self.config.target_replace,
-            algo='dueling_dqn' if self.config.use_dueling else 'dqn',
             env_name=f'vacuum_{environment.grid_size}x{environment.grid_size}',
             chkpt_dir=self.config.checkpoint_dir,
         )

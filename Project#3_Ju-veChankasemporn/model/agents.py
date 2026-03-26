@@ -3,8 +3,8 @@
 import numpy as np
 import torch as T
 
-from deep_q_network import DeepQNetwork, DuelingDeepQNetwork
-from replay_memory import ReplayBuffer
+from model.deep_q_network import DeepQNetwork
+from model.replay_memory import ReplayBuffer
 
 
 class Agent:
@@ -117,60 +117,6 @@ class DQNAgent(Agent):
 
         q_pred = self.q_eval.forward(states)[indices, actions]
         q_next = self.q_next.forward(states_).max(dim=1)[0]
-        q_next[dones] = 0.0
-        q_target = rewards + self.gamma * q_next
-
-        loss = self.q_eval.loss(q_target, q_pred).to(self.q_eval.device)
-        loss.backward()
-        self.q_eval.optimizer.step()
-        self.learn_step_counter += 1
-        self.decrement_epsilon()
-        return float(loss.item())
-
-
-class DuelingDQNAgent(Agent):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.q_eval = DuelingDeepQNetwork(
-            self.lr,
-            self.n_actions,
-            input_dims=self.input_dims,
-            name=self.env_name + '_' + self.algo + '_q_eval',
-            chkpt_dir=self.chkpt_dir,
-        )
-        self.q_next = DuelingDeepQNetwork(
-            self.lr,
-            self.n_actions,
-            input_dims=self.input_dims,
-            name=self.env_name + '_' + self.algo + '_q_next',
-            chkpt_dir=self.chkpt_dir,
-        )
-
-    def choose_action(self, observation, evaluate=False):
-        if (not evaluate) and np.random.random() < self.epsilon:
-            return int(np.random.choice(self.action_space))
-
-        state = T.tensor(np.array([observation]), dtype=T.float32).to(self.q_eval.device)
-        _, advantages = self.q_eval.forward(state)
-        return int(T.argmax(advantages).item())
-
-    def learn(self):
-        if self.memory.mem_cntr < self.batch_size:
-            return 0.0
-
-        self.q_eval.optimizer.zero_grad()
-        self.replace_target_network()
-
-        states, actions, rewards, states_, dones = self.sample_memory()
-        indices = np.arange(self.batch_size)
-
-        V_s, A_s = self.q_eval.forward(states)
-        V_s_, A_s_ = self.q_next.forward(states_)
-
-        q_pred = (V_s + (A_s - A_s.mean(dim=1, keepdim=True)))[indices, actions]
-        q_next = V_s_ + (A_s_ - A_s_.mean(dim=1, keepdim=True))
-        q_next = q_next.max(dim=1)[0]
         q_next[dones] = 0.0
         q_target = rewards + self.gamma * q_next
 

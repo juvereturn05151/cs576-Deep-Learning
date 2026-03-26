@@ -354,7 +354,6 @@ class App:
                 mem_size=10000,
                 batch_size=64,
                 target_replace=100,
-                use_dueling=False,
             )
         )
 
