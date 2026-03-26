@@ -8,10 +8,10 @@ from model.agents import DQNAgent
 class DQNConfig:
     episodes: int = 500
     gamma: float = 0.9
-    lr: float = 0.1
+    lr: float = 0.001
     epsilon: float = 1.0
     epsilon_min: float = 0.05
-    epsilon_decay: float = 0.5
+    epsilon_decay: float = 0.995
     mem_size: int = 10000
     batch_size: int = 64
     target_replace: int = 100
