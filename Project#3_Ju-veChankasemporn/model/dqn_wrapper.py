@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from model.agents import DQNAgent
-
+import matplotlib.pyplot as plt
 
 @dataclass
 class DQNConfig:
@@ -16,7 +16,7 @@ class DQNConfig:
     mem_size: int = 10000
     batch_size: int = 64
     target_replace: int = 100
-    checkpoint_dir: str = 'tmp/dqn'
+    checkpoint_dir: str = 'saved_models'
 
 
 class DQNWrapper:
@@ -116,9 +116,63 @@ class DQNWrapper:
             'losses': loss_history,
             'epsilons': epsilon_history,
         }
+
+        self.save_training_plots()
+
         return self.training_history
 
     def act(self, state):
         if self.agent is None:
             raise RuntimeError('Model not trained yet')
         return self.agent.choose_action(state, evaluate=True)
+
+    def save_training_plots(self):
+        if not self.training_history or self.grid_size is None:
+            return
+
+        rewards = self.training_history['rewards']
+        steps = self.training_history['steps']
+
+        if not rewards or not steps:
+            return
+
+        # 👉 Use your desired folder
+        plot_dir = Path("plot_path")
+        plot_dir.mkdir(parents=True, exist_ok=True)
+
+        episodes = list(range(1, len(rewards) + 1))
+        prefix = f"vacuum_{self.grid_size}x{self.grid_size}"
+
+        # --- Reward plot ---
+        plt.figure(figsize=(10, 5))
+        plt.plot(episodes, rewards)
+        plt.xlabel("Learning Epochs")
+        plt.ylabel("Reward")
+        plt.title(f"Reward vs Learning Epochs ({prefix})")
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(plot_dir / f"{prefix}_reward.png")
+        plt.close()
+
+        # --- Steps plot ---
+        plt.figure(figsize=(10, 5))
+        plt.plot(episodes, steps)
+        plt.xlabel("Learning Epochs")
+        plt.ylabel("Steps to Complete Task")
+        plt.title(f"Steps vs Learning Epochs ({prefix})")
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(plot_dir / f"{prefix}_steps.png")
+        plt.close()
+
+        # --- Combined plot ---
+        plt.figure(figsize=(10, 5))
+        plt.plot(episodes, rewards, label="Reward")
+        plt.plot(episodes, steps, label="Steps")
+        plt.xlabel("Learning Epochs")
+        plt.title(f"Reward & Steps ({prefix})")
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(plot_dir / f"{prefix}_combined.png")
+        plt.close()

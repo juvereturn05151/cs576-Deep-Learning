@@ -5,6 +5,7 @@ Copyright:    (c) 2025 DigiPen Institute of Technology. All rights reserved.
 """
 
 import sys
+from pathlib import Path
 from enum import Enum
 
 import pygame
@@ -377,6 +378,7 @@ class App:
 
         self.mode = AppMode.IDLE
         self.last_training_summary = self._build_training_summary(grid_size)
+
         self.status_message = (
             f"Training finished for {grid_size} x {grid_size}. Model saved. {self.last_training_summary}"
         )
