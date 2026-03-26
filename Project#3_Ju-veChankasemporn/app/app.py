@@ -34,7 +34,7 @@ from config import (
 try:
     from model.dqn_wrapper import DQNWrapper
 except ImportError:
-    from model.dqn_wrapper import DQNWrapper
+    from dqn_wrapper import DQNWrapper
 
 try:
     from app.ui_components import Button
@@ -44,7 +44,7 @@ except ImportError:
 try:
     from vacuum_environment.environment import VacuumEnvironment
 except ImportError:
-    from vacuum_environment.environment import VacuumEnvironment
+    from environment import VacuumEnvironment
 
 
 class AppMode(Enum):
@@ -80,6 +80,7 @@ class App:
 
         self.buttons: dict[str, Button] = {}
         self._create_buttons()
+        self._load_saved_models()
         self._refresh_button_states()
 
     def _create_buttons(self) -> None:
@@ -115,6 +116,27 @@ class App:
             text="Reset Environment",
         )
 
+    def _load_saved_models(self) -> None:
+        loaded_sizes = []
+
+        for size in AVAILABLE_GRID_SIZES:
+            temp_environment = VacuumEnvironment(size)
+            wrapper = DQNWrapper()
+            if wrapper.load_model(temp_environment):
+                self.trainers[size] = wrapper
+                self.training_histories[size] = wrapper.training_history or {
+                    'rewards': [],
+                    'steps': [],
+                    'losses': [],
+                    'epsilons': [],
+                }
+                loaded_sizes.append(f"{size}x{size}")
+
+        if loaded_sizes:
+            self.status_message = (
+                "Loaded trained model(s): " + ", ".join(loaded_sizes) + "."
+            )
+
     def _refresh_button_states(self) -> None:
         model_ready = self.environment.grid_size in self.trainers
         busy = self.mode == AppMode.TRAINING
@@ -129,7 +151,10 @@ class App:
     def set_grid_size(self, size: int) -> None:
         self.environment.set_grid_size(size)
         self.mode = AppMode.IDLE
-        self.status_message = f"Environment updated to fixed {size} x {size} map."
+        if size in self.trainers:
+            self.status_message = f"Environment updated to fixed {size} x {size} map. Saved model is ready."
+        else:
+            self.status_message = f"Environment updated to fixed {size} x {size} map."
         self.last_training_summary = self._build_training_summary(size)
         self._refresh_button_states()
 
@@ -353,7 +378,7 @@ class App:
         self.mode = AppMode.IDLE
         self.last_training_summary = self._build_training_summary(grid_size)
         self.status_message = (
-            f"Training finished for {grid_size} x {grid_size}. {self.last_training_summary}"
+            f"Training finished for {grid_size} x {grid_size}. Model saved. {self.last_training_summary}"
         )
 
         self.environment.reset()

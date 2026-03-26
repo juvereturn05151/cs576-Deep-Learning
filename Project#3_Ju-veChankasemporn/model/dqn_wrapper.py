@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from model.agents import DQNAgent
@@ -29,7 +30,7 @@ class DQNWrapper:
         input_dims = (environment.grid_size * environment.grid_size,)
         n_actions = environment.action_count()
 
-        agent_cls =DQNAgent
+        agent_cls = DQNAgent
         self.agent = agent_cls(
             gamma=self.config.gamma,
             epsilon=self.config.epsilon,
@@ -46,6 +47,33 @@ class DQNWrapper:
         )
         self.grid_size = environment.grid_size
         return self.agent
+
+    def get_checkpoint_paths(self, environment):
+        checkpoint_dir = Path(self.config.checkpoint_dir)
+        base_name = f'vacuum_{environment.grid_size}x{environment.grid_size}_DQNAgent'
+        return {
+            'q_eval': checkpoint_dir / f'{base_name}_q_eval',
+            'q_next': checkpoint_dir / f'{base_name}_q_next',
+        }
+
+    def has_saved_model(self, environment) -> bool:
+        paths = self.get_checkpoint_paths(environment)
+        return paths['q_eval'].exists() and paths['q_next'].exists()
+
+    def load_model(self, environment) -> bool:
+        if not self.has_saved_model(environment):
+            return False
+
+        agent = self.build_for_environment(environment)
+        agent.load_models()
+        agent.epsilon = agent.eps_min
+        self.training_history = self.training_history or {
+            'rewards': [],
+            'steps': [],
+            'losses': [],
+            'epsilons': [],
+        }
+        return True
 
     def train(self, environment):
         agent = self.build_for_environment(environment)
@@ -79,6 +107,8 @@ class DQNWrapper:
             steps_history.append(environment.steps_taken)
             loss_history.append(episode_loss / max(1, updates))
             epsilon_history.append(agent.epsilon)
+
+        agent.save_models()
 
         self.training_history = {
             'rewards': reward_history,
