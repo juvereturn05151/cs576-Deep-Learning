@@ -1,8 +1,7 @@
 """
-Deep Q-network module adapted to work with the current vacuum environment.
-
-This keeps the same general structure as Phil Tabor's version, but adds support
-for flat vector observations from the current app/environment.
+File Name:    deep_q_network.py
+Author(s):    Ju-ve Chankasemporn
+Copyright:    (c) 2025 DigiPen Institute of Technology. All rights reserved.
 """
 
 import os
@@ -14,7 +13,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-
 class DeepQNetwork(nn.Module):
     def __init__(self, lr, n_actions, name, input_dims, chkpt_dir):
         super().__init__()
@@ -24,25 +22,12 @@ class DeepQNetwork(nn.Module):
 
         self.input_dims = tuple(input_dims)
         self.n_actions = n_actions
-
-        # The current VacuumEnvironment returns a flattened grid vector.
-        # Use an MLP for 1D observations, while still supporting image-style
-        # inputs if you later switch to them.
         self.is_vector_input = len(self.input_dims) == 1
 
-        if self.is_vector_input:
-            input_size = int(np.prod(self.input_dims))
-            self.fc1 = nn.Linear(input_size, 256)
-            self.fc2 = nn.Linear(256, 256)
-            self.fc3 = nn.Linear(256, n_actions)
-        else:
-            self.conv1 = nn.Conv2d(self.input_dims[0], 32, 8, stride=4)
-            self.conv2 = nn.Conv2d(32, 64, 4, stride=2)
-            self.conv3 = nn.Conv2d(64, 64, 3, stride=1)
-
-            fc_input_dims = self.calculate_conv_output_dims(self.input_dims)
-            self.fc1 = nn.Linear(fc_input_dims, 512)
-            self.fc2 = nn.Linear(512, n_actions)
+        input_size = int(np.prod(self.input_dims))
+        self.fc1 = nn.Linear(input_size, 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc3 = nn.Linear(256, n_actions)
 
         self.optimizer = optim.RMSprop(self.parameters(), lr=lr)
         self.loss = nn.MSELoss()

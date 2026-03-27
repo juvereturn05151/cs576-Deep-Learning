@@ -1,3 +1,9 @@
+"""
+File Name:    dqn_wrapper.py
+Author(s):    Ju-ve Chankasemporn
+Copyright:    (c) 2025 DigiPen Institute of Technology. All rights reserved.
+"""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -136,14 +142,13 @@ class DQNWrapper:
         if not rewards or not steps:
             return
 
-        # 👉 Use your desired folder
         plot_dir = Path("plot_path")
         plot_dir.mkdir(parents=True, exist_ok=True)
 
         episodes = list(range(1, len(rewards) + 1))
         prefix = f"vacuum_{self.grid_size}x{self.grid_size}"
 
-        # --- Reward plot ---
+        #reward plot ---
         plt.figure(figsize=(10, 5))
         plt.plot(episodes, rewards)
         plt.xlabel("Learning Epochs")
@@ -154,7 +159,7 @@ class DQNWrapper:
         plt.savefig(plot_dir / f"{prefix}_reward.png")
         plt.close()
 
-        # --- Steps plot ---
+        #steps plot ---
         plt.figure(figsize=(10, 5))
         plt.plot(episodes, steps)
         plt.xlabel("Learning Epochs")
@@ -165,7 +170,7 @@ class DQNWrapper:
         plt.savefig(plot_dir / f"{prefix}_steps.png")
         plt.close()
 
-        # --- Combined plot ---
+        #cmbined plot ---
         plt.figure(figsize=(10, 5))
         plt.plot(episodes, rewards, label="Reward")
         plt.plot(episodes, steps, label="Steps")
