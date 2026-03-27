@@ -1,4 +1,8 @@
-"""DQN agents integrated for the current vacuum cleaner app/environment."""
+"""
+File Name:    agents.py
+Author(s):    Ju-ve Chankasemporn
+Copyright:    (c) 2025 DigiPen Institute of Technology. All rights reserved.
+"""
 
 import numpy as np
 import torch as T
@@ -6,23 +10,8 @@ import torch as T
 from model.deep_q_network import DeepQNetwork
 from model.replay_memory import ReplayBuffer
 
-
 class Agent:
-    def __init__(
-        self,
-        gamma,
-        epsilon,
-        lr,
-        n_actions,
-        input_dims,
-        mem_size,
-        batch_size,
-        eps_min=0.01,
-        eps_dec=5e-7,
-        replace=1000,
-        algo=None,
-        env_name=None,
-        chkpt_dir='tmp/dqn',
+    def __init__(self, gamma, epsilon, lr, n_actions, input_dims, mem_size, batch_size, eps_min=0.01, eps_dec=0.05, replace=1000,algo=None,env_name=None,chkpt_dir='saved_models',
     ):
         self.gamma = gamma
         self.epsilon = epsilon
@@ -106,17 +95,17 @@ class DQNAgent(Agent):
         return int(action)
 
     def learn(self):
-        if self.memory.mem_cntr < self.batch_size:
+        if self.memory.mem_counter < self.batch_size:
             return 0.0
 
         self.q_eval.optimizer.zero_grad()
         self.replace_target_network()
 
-        states, actions, rewards, states_, dones = self.sample_memory()
+        states, actions, rewards, next_states, dones = self.sample_memory()
         indices = np.arange(self.batch_size)
 
         q_pred = self.q_eval.forward(states)[indices, actions]
-        q_next = self.q_next.forward(states_).max(dim=1)[0]
+        q_next = self.q_next.forward(next_states).max(dim=1)[0]
         q_next[dones] = 0.0
         q_target = rewards + self.gamma * q_next
 
